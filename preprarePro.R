@@ -65,7 +65,7 @@ table(brfss2013$X_incomg, useNA = "ifany")
 
 # Vegetables and fruit
 
-table(brfss2013$fruitju1, useNA = "ifany")
+table(brfss2013$vegeda1_, useNA = "ifany")
 
 
 #### Consumption vegetables and fruit reduce blood pressure
@@ -84,21 +84,63 @@ sort(noNA)
 
 noNA[names(noNA) == "lsatisfy"]
 ################################################################################
+##### first question - ¿relationship between eating food and vegetables and good health?
 
-class(brfss2013$lsatisfy)
+# create variable
+brfss2013 <- brfss2013 %>% 
+        filter(fruitju1 %in% (301:399) &
+                       fruit1 %in% (301:399) &
+                       fvgreen %in% (301:399) &
+                       fvorang %in% (301:399) &
+                       vegetab1 %in% (301:399))  %>% 
+        mutate(totFruitVegetables = 
+                       fruitju1 + fruit1 + fvgreen + fvorang + vegetab1-1500) %>%
+        mutate(averageDayFruitVeg = totFruitVegetables/30.4167)
 
-# Exploratory graph
+max(brfss2013$averageDayFruitVeg)
 
-expe <- brfss2013 %>% filter(!is.na(lsatisfy)) %>% group_by(fmonth) %>% 
-        summarise(percVerySatis = sum(lsatisfy == "Very dissatisfied",
-                                      na.rm = TRUE)/n()*100, count =n())  
-        
-ggplot(data = expe , aes(x=fmonth, y=percVerySatis, group = 1)) + geom_line()
+brfss2013 <- brfss2013 %>%
+        mutate(fruitVegeGroups = 
+                       cut(brfss2013v$averageDayFruitVeg,breaks = c(0,1,3,16.27395)))
+
+brfss2013 %>% select(averageDayFruitVeg, fruitVegeGroups)
+
+levels(brfss2013$fruitVegeGroups) <- c("less than 1 fruit or vegetable per day", 
+                                       "1 to 3 fruit or vegetable per day",
+                                       "more than 3 fruit or vegetable per day")
+
+table(brfss2013$X_r)
+table(brfss2013$X_rfhlth)
 
 
-expe <- brfss2013 %>% filter(!is.na(lsatisfy)) %>% group_by(fmonth) %>% 
-        summarise(percVerySatis = mean(sleptim1, na.rm = TRUE), count =n())  
+install.packages("gmodels")
+library(gmodels)
 
-ggplot(data = expe , aes(x=fmonth, y=percVerySatis, group = 1)) + geom_line()
+
+crosstable <- CrossTable(brfss2013$X_rfhlth, brfss2013$fruitVegeGroups)
+crosstable1 <- as.data.frame(crosstable[["prop.col"]])
+
+ggplot(crosstable1, aes(fill = crosstable1$x ,y = crosstable1$Freq , x =crosstable1$y)) + 
+        geom_bar(position ="stack", stat = "identity")
+
+
+##### Second question - ¿There are possible coufounders to the relationship?
+
+
+
+crosstable <- CrossTable(brfss2013$fruitVegeGroups, brfss2013$X_incomg)
+crosstable1 <- as.data.frame(crosstable[["prop.col"]])
+
+
+ggplot(crosstable1, aes(fill = crosstable1$x ,y = crosstable1$Freq , x =crosstable1$y)) + 
+        geom_bar(position ="stack", stat = "identity")
+
+
+
+
+
+names(table(brfss2013$lsatisfy, useNA = "ifany"))
+
+
 
 
