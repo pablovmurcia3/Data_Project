@@ -170,7 +170,7 @@ grid.arrange(p1,p2,p3,p4,p5, ncol=2)
 
 table(brfss2013Food$X_incomg)
 
-# Income -- neh
+# Income -- neh..
 p <- ggplot(brfss2013FoodExce, aes(x=ExerciPerMonth, y=averageDayFruitVeg, colour =X_rfhlth)) +
   geom_point( size = 1.5) +
   geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) 
