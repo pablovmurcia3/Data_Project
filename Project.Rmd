@@ -1,0 +1,287 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## **Introduction**
+
+There is a well-known relationship between the consumption of fruits and vegetables and multiple health benefits (lower blood pressure, reduce the risk of heart disease and stroke, prevention of some types of cancer, etc.). The main objective of this assessment is to analyze to what extent the consumption of fruit a vegetables can be associated with a good level of health in adults. Also, it will be analyzed if this relationship between consumption and health is preserved when we control some confounding variables. 
+
+To assess these objectives it will be used the data of The Behavioral Risk Factor Surveillance System (BRFSS). The complete information about this dataset can be found [here](https://d3c33hcgiwev3.cloudfront.net/_e34476fda339107329fc316d1f98e042_brfss_codebook.html?Expires=1615593600&Signature=V4ZmP7Ff5hinmnyxLsCv8j0F3tXR5hHjIlb0oBS64~4ZqhQ4o3D0S9n-uJ0fQ6VAVaZMgnvtTiRg5Yrg5TQorIoiGKBCyCAyKHzlrwTf0i6oYRJ~wCvTUm-HBJ2-P8qcJr7u3fQbZXLgP1Z-uli2GTopBAd-2sMJ0j~7UiJAwbU_&Key-Pair-Id=APKAJLTNE6QMUY6HBC5A). The limitations of this dataset will be explained in the data part.
+
+## **Setup**
+
+### **Load packages**
+
+Six packages were used to conduct the data analysis. If you want to reproduce it, please make sure that they are previously installed.
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(hrbrthemes)
+library(gmodels)
+library(gridExtra)
+library(viridis)
+library(viridisLite)
+```
+
+### Load data
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+* * *
+
+## **Part 1: Data**
+
+The data of The Behavioral Risk Factor Surveillance System (BRFSS) is collected by a Stratified sample method, where the strata are the states. For instance, there is a random sample within each state. In this sense, the conclusions derived from the use of the dataset are  ***generalizable*** to the non-institutionalized adult population of the US. However, the survey doesn´t contemplate a random assignment of treatment. 
+
+So we can conclude that the BRFSS is useful only to conduct ***observational studies***, where we can only assess association,  ***not causality ***.
+
+Despite the generalizability of the survey, the method of collecting the data could imply some biases. Cause the collection relies on a landline telephone and cellular telephone-based surveys, the results of the survey exclude the adults that don´t have access to a landline or cellular telephone.
+
+Also, there are some disadvantages of the self-report approach of the BRFSS. Individuals being asked a sensitive and complex question may have limitations in answering with neutrality and objectivity.
+
+* * *
+
+## **Part 2: Research questions**
+
+**Research question 1:** is there a relationship between the **health quality** and the level of **consumption of fruit and vegetables**? Or ***using the concepts of the course*** the probability of having good or poor health depends on the level consumption of fruit and vegetables
+
+
+**Research question 2:** can we find possible confounding variables that affect the relationship between quality of health and level of consumption of fruit and vegetables? are **income**, **physical activity**, **age** candidates? 
+
+
+**Research question 3:** If we control confounding variables, the relationship between **health quality** and **consumption of fruit and vegetables** still prevails?
+
+* * *
+
+## **Part 3: Exploratory data analysis**
+
+
+**Research question 1:**
+
+To assess the relationship between **health quality** and **level of consumption of fruit and vegetables** is needed some transformation of the data. In the next code chunk, we create a continuous variable that shows the total consumption of fruit and vegetables for each of the respondents. Then, we recategorized the variable to create a discrete one. 
+
+```{r,  message=FALSE}
+levels(brfss2013$X_incomg) <- c("< $15,000", 
+                                    "$15,000 to $25,000",
+                                    "$25,000 to $35,000",
+                                    "$35,000 to $50,000",
+                                    "$50,000 > ")
+
+levels(brfss2013$exerany2) <- c("Physical activity in past 30 day", 
+                                "No physical activity in past 30 day")
+
+brfss2013Food <- brfss2013 %>% 
+        filter(fruitju1 %in% (301:399) &
+                       fruit1 %in% (301:399) &
+                       fvgreen %in% (301:399) &
+                       fvorang %in% (301:399) &
+                       vegetab1 %in% (301:399))  %>% 
+        mutate(totFruitVegetables = 
+                       fruitju1 + fruit1 + fvgreen + fvorang + vegetab1-1500) %>%
+        mutate(averageDayFruitVeg = totFruitVegetables/30.4167)
+
+
+brfss2013Food <- brfss2013Food %>%
+        mutate(fruitVegeGroups = 
+                       cut(brfss2013Food$averageDayFruitVeg,breaks = c(0,1,3,16.27395)))
+
+levels(brfss2013Food$fruitVegeGroups) <- c("> 1 fruit/vegetable per day", 
+                                       " 1 to 3 fruit/vegetable per day",
+                                       "< 3 fruit/vegetable per day")
+
+```
+
+A stacked barplot is a good way to analyze the relations between health quality and level of consumption (in it´s discrete form).
+
+```{r ,  message=FALSE, fig.align='center', fig.width= 7, fig.height = 4}
+
+plot1 <- brfss2013Food %>%
+        filter(!is.na(brfss2013Food$X_rfhlth), !is.na(brfss2013Food$fruitVegeGroups)) %>%
+        group_by(fruitVegeGroups,X_rfhlth) %>%
+        summarize(n = n()) %>%
+        mutate(freq = n/sum(n),
+               posn_pct = cumsum(freq)-0.5*freq)
+names(plot1)[2] <- c("Health_Status")
+
+
+ggplot(plot1, aes(fill = Health_Status , y = freq , x = fruitVegeGroups)) + 
+        geom_bar(position ="stack", stat = "identity", width = .8, color="black") +
+        geom_text(aes(label= round(freq, digits = 2), y=1-posn_pct), color="white")+
+        ggtitle("Probability of having good or poor healt given the daily 
+             consumption of fruit and vegetable") +
+        ylab("Relative frequency") + 
+        scale_fill_manual(values=c("steelblue2", "indianred2")) + 
+        theme(axis.text.x=element_text(size=8), axis.title.x=element_blank(), 
+              plot.title = element_text(hjust = 0.5)) 
+
+
+```
+
+
+The plot shows the conditional probabilities of having good or poor health given the level of daily consumption of fruit and vegetable. Using the notation of the class, we can see that ...
+
+<center>
+**P(Good or better health | more that 3 fruit/vegetable per day) > P(Good or better health| less than 1 fruit/vegetable per day)**
+</center>
+
+Let´s remember that we can only talk about a association of variables, not causality.
+
+* * *
+**Research quesion 2:**
+
+```{r, fig.align='center', message=FALSE, fig.width= 7, fig.height = 8}
+
+
+
+plot2 <- brfss2013Food %>%
+        filter(!is.na(brfss2013Food$fruitVegeGroups), !is.na(brfss2013Food$X_incomg)) %>%
+        group_by(X_incomg,fruitVegeGroups) %>%
+        summarize(n = n()) %>%
+        mutate(freq = n/sum(n),
+               posn_pct = cumsum(freq)-0.5*freq)
+names(plot2)[2] <- c("Level_of_consumption")
+
+
+p2 <- ggplot(plot2, aes(fill = Level_of_consumption , y = freq , x = X_incomg)) + 
+            geom_bar(position ="stack", stat = "identity",
+                     width = .8, color="black") +
+            geom_text(aes(label= round(freq, digits = 2),
+                          y=1-posn_pct), color="white") +
+            ggtitle("Probability of having a specific level of
+            fruit/vegetable consumption
+            given the level of income") +
+            ylab("Relative frequency") + 
+            theme(axis.text.x=element_text(size=8),
+                  axis.title.x=element_blank(), 
+                  plot.title = element_text(hjust = 0.5)) 
+
+
+# income vs health
+
+
+plot3 <- brfss2013 %>%
+        filter(!is.na(brfss2013$X_rfhlth), !is.na(brfss2013$X_incomg)) %>%
+        group_by(X_incomg,X_rfhlth) %>%
+        summarize(n = n()) %>%
+        mutate(freq = n/sum(n),
+               posn_pct = cumsum(freq)-0.5*freq)
+names(plot3)[2] <- c("Health_Status")
+
+
+p3 <- ggplot(plot3, aes(fill = Health_Status , y = freq , x = X_incomg)) + 
+                geom_bar(position ="stack", stat = "identity",
+                         width = .8, color="black") +
+                geom_text(aes(label= round(freq, digits = 2), 
+                              y=1-posn_pct), color="white") +
+                ggtitle("Probability of having good or poor healt given
+                         the level of income") +
+                ylab("Relative frequency") + 
+                scale_fill_manual(values=c("steelblue2", "indianred2")) + 
+                theme(axis.text.x=element_text(size=8),
+                      axis.title.x=element_blank(),
+                      plot.title = element_text(hjust = 0.5)) 
+        
+grid.arrange(p2, p3, ncol=1)
+
+
+
+```
+
+```{r, fig.align='center', message=FALSE, fig.width= 7, fig.height = 8}
+brfss2013FoodExce <- brfss2013Food %>% 
+        filter(exeroft1 %in% (201:299)) %>% 
+        mutate(ExerciPerMonth = 
+                       exeroft1 - 200 )
+p4 <- ggplot(brfss2013FoodExce, aes(x=ExerciPerMonth, y=averageDayFruitVeg)) +
+        geom_point(alpha = 1/5, size = 1.5) +
+        geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) 
+
+plot5 <- brfss2013 %>%
+        filter(!is.na(brfss2013$X_rfhlth), !is.na(brfss2013$exerany2)) %>%
+        group_by(exerany2,X_rfhlth) %>%
+        summarize(n = n()) %>%
+        mutate(freq = n/sum(n),
+               posn_pct = cumsum(freq)-0.5*freq)
+names(plot5)[2] <- c("Health_Status")
+
+
+p5 <- ggplot(plot5, aes(fill = Health_Status , y = freq , x = exerany2)) + 
+      geom_bar(position ="stack", stat = "identity", width = .8, color="black") +
+      geom_text(aes(label= round(freq, digits = 2), y=1-posn_pct), color="white") +
+      ggtitle("Probability of having good or poor healt given
+                             the level of income") +
+      ylab("Relative frequency") + 
+      scale_fill_manual(values=c("steelblue2", "indianred2")) + 
+      theme(axis.text.x=element_text(size=8), axis.title.x=element_blank()) 
+
+grid.arrange(p4, p5, ncol=1)
+
+```
+
+
+
+**Research quesion 3:**
+
+```{r,  fig.align='center', message=FALSE, fig.width= 12, fig.height = 8}
+
+
+plot1 <- brfss2013Food %>%
+        filter(!is.na(brfss2013Food$X_rfhlth), 
+               !is.na(brfss2013Food$fruitVegeGroups),
+               !is.na(brfss2013Food$X_incomg)) %>%
+        group_by(X_incomg,fruitVegeGroups,X_rfhlth) %>%
+        summarize(n = n()) %>%
+        mutate(freq = n/sum(n), posn_pct = cumsum(freq)-0.5*freq)
+
+
+names(plot1)[3] <- c("Health_Status")
+
+ggplot(plot1, aes(fill = Health_Status , y = freq , x = fruitVegeGroups)) + 
+      geom_bar(position ="stack", stat = "identity", width = .8, color="black") +
+      geom_text(aes(label= round(freq, digits = 2), y=1-posn_pct), color="white") +
+      facet_grid( X_incomg~.)+
+      ggtitle("Probability of having good or poor healt given the daily consumption of fruit and vegetable") +
+      ylab("Relative frequency") + 
+      scale_fill_manual(values=c("steelblue2", "indianred2")) + 
+      theme(axis.text.x=element_text(size=10), 
+            axis.title.x=element_blank(),
+            plot.title = element_text(hjust = 0.5)) 
+
+
+
+
+```
+
+```{r,  fig.align='center', message=FALSE, fig.width= 12, fig.height = 8, message=FALSE}
+
+
+plot2 <- brfss2013Food %>% 
+  filter(!is.na(brfss2013Food$totFruitVegetables), 
+         !is.na(brfss2013Food$X_rfhlth),
+         !is.na(brfss2013Food$exerany2), totFruitVegetables < 300)
+names(plot2)[which(names(plot2) == "X_rfhlth")] <- c("Health_Status")
+
+M <- plot2 %>% group_by(exerany2,Health_Status) %>% 
+  summarise(means= mean(totFruitVegetables))
+
+means <- M$means
+ggplot(plot2, aes(x=exerany2, y=totFruitVegetables)) +
+  geom_boxplot(aes(fill=Health_Status), position=position_dodge(.9)) +
+  stat_summary(fun=mean, geom="point", aes(group=Health_Status), position=position_dodge(.9),show.legend=FALSE, 
+               color="black", size= 5) +
+  scale_fill_manual(values=c("steelblue2", "indianred2")) +  
+  geom_text(data = M, aes(y = means, label=round(means,2), group=Health_Status),
+             position=position_dodge(1.2))
+
+
+
+```
+
