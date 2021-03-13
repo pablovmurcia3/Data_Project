@@ -17,16 +17,14 @@ To assess these objectives it will be used the data of The Behavioral Risk Facto
 
 ### **Load packages**
 
-Six packages were used to conduct the data analysis. If you want to reproduce it, please make sure that they are previously installed.
+Four packages were used to conduct the data analysis. If you want to reproduce it, please make sure that they are previously installed.
 
 ```{r load-packages, message = FALSE}
 library(ggplot2)
 library(dplyr)
-library(hrbrthemes)
-library(gmodels)
 library(gridExtra)
-library(viridis)
-library(viridisLite)
+library(kableExtra)
+
 ```
 
 ### Load data
@@ -41,7 +39,7 @@ load("brfss2013.RData")
 
 The data of The Behavioral Risk Factor Surveillance System (BRFSS) is collected by a Stratified sample method, where the strata are the states. For instance, there is a random sample within each state. In this sense, the conclusions derived from the use of the dataset are  ***generalizable*** to the non-institutionalized adult population of the US. However, the survey doesn´t contemplate a random assignment of treatment. 
 
-So we can conclude that the BRFSS is useful only to conduct ***observational studies***, where we can only assess association,  ***not causality ***.
+So we can conclude that the BRFSS is useful only to conduct ***observational studies***, where we can only assess association,  ***not causality***.
 
 Despite the generalizability of the survey, the method of collecting the data could imply some biases. Cause the collection relies on a landline telephone and cellular telephone-based surveys, the results of the survey exclude the adults that don´t have access to a landline or cellular telephone.
 
@@ -51,22 +49,29 @@ Also, there are some disadvantages of the self-report approach of the BRFSS. Ind
 
 ## **Part 2: Research questions**
 
-**Research question 1:** is there a relationship between the **health quality** and the level of **consumption of fruit and vegetables**? Or ***using the concepts of the course*** the probability of having good or poor health depends on the level consumption of fruit and vegetables
+**Research question 1:** 
+Is there a relationship between the **health quality** and the level of 
+**consumption of fruit and vegetables**?
 
+Using the concepts of the course, we can rewrite this question as: *the probability of having good or poor health depends on the level consumption of fruit and vegetables?*
 
-**Research question 2:** can we find possible confounding variables that affect the relationship between quality of health and level of consumption of fruit and vegetables? are **income**, **physical activity**, **age** candidates? 
+**Research question 2:** 
+Can we find possible confounding variables that affect the relationship between quality of health and level of consumption of fruit and vegetables? are **income** and **physical activity** candidates? 
 
+One of the reasons that prevent us assess causality in the first question is that the BRFSS doesn´t control confounders. We want to prove that the variables of income and physical activity are indeed affecting the relationship.
 
-**Research question 3:** If we control confounding variables, the relationship between **health quality** and **consumption of fruit and vegetables** still prevails?
+**Research question 3:**
+If we control confounding variables, the relationship between **health quality** and **consumption of fruit and vegetables** still prevails?
+
+This question does not pretend to find causality. The purpose is to see if the relationship is still present when we take into account the confounding variables.
 
 * * *
 
 ## **Part 3: Exploratory data analysis**
 
+# **Research question 1:**
 
-**Research question 1:**
-
-To assess the relationship between **health quality** and **level of consumption of fruit and vegetables** is needed some transformation of the data. In the next code chunk, we create a continuous variable that shows the total consumption of fruit and vegetables for each of the respondents. Then, we recategorized the variable to create a discrete one. 
+To assess the relationship between **health quality** and **level of consumption of fruit and vegetables** is needed some transformation of the data. In the code chunk below, we create a continuous variable that shows the total consumption of fruit and vegetables for each of the respondents. Then, we recategorized the variable to create a discrete one. 
 
 ```{r,  message=FALSE}
 levels(brfss2013$X_incomg) <- c("< $15,000", 
@@ -99,6 +104,33 @@ levels(brfss2013Food$fruitVegeGroups) <- c("> 1 fruit/vegetable per day",
 
 ```
 
+Using the continuous variable of consumption of fruit/vegetables we can calculate the mean and the standard deviation:
+
+```{r,  message=FALSE}
+mean(brfss2013Food$averageDayFruitVeg)
+sd(brfss2013Food$averageDayFruitVeg)
+```
+
+Using the discrete variable of consumption of fruit/vegetables we can calculate the marginal probabilities of each level of consumption.
+
+```{r,  message=FALSE}
+t <- brfss2013Food  %>%  filter(!is.na(brfss2013Food$fruitVegeGroups))  %>%
+                             group_by(fruitVegeGroups) %>%
+                             summarise(count = n()) %>% 
+                             mutate(marginal_probability = count/sum(count))
+t %>% kbl() %>% kable_styling()
+
+```
+Also,  we can calculate the marginal probabilities of the variable of quality of health
+```{r,  message=FALSE}
+t <- brfss2013Food  %>%  filter(!is.na(brfss2013Food$X_rfhlth))  %>%
+                             group_by(X_rfhlth) %>%
+                             summarise(count = n()) %>% 
+                             mutate(marginal_probability = count/sum(count))
+t %>% kbl() %>% kable_styling()
+
+```
+
 A stacked barplot is a good way to analyze the relations between health quality and level of consumption (in it´s discrete form).
 
 ```{r ,  message=FALSE, fig.align='center', fig.width= 7, fig.height = 4}
@@ -125,22 +157,35 @@ ggplot(plot1, aes(fill = Health_Status , y = freq , x = fruitVegeGroups)) +
 
 ```
 
-
-The plot shows the conditional probabilities of having good or poor health given the level of daily consumption of fruit and vegetable. Using the notation of the class, we can see that ...
-
+The plot shows the conditional probabilities of having good or poor health given the level of daily consumption of fruit and vegetable. Using the notation of the class, we can see that ...   
+    
 <center>
-**P(Good or better health | more that 3 fruit/vegetable per day) > P(Good or better health| less than 1 fruit/vegetable per day)**
-</center>
-
-Let´s remember that we can only talk about a association of variables, not causality.
+**P(Good or better health | more that 3 fruit/vegetable per day) > P(Good or better health| less than 1 fruit/vegetable per day)**    
+</center>     
 
 * * *
-**Research quesion 2:**
+# **Research question 2:**
+
+We have the hypothesis that **income** and **physical activity** are confounding variables to the relationship of the first question. 
+
+In order to solve this question its necessary to prove that the variables are associated with both **health** and **consumption of fruit and vegetables**
+
+Let´s start with the income variable. 
+
+We can calculate the marginal probabilities of the variable of income
+```{r,  message=FALSE}
+t <- brfss2013Food  %>%  filter(!is.na(brfss2013Food$X_incomg))  %>%
+                             group_by(X_incomg) %>%
+                             summarise(count = n()) %>% 
+                             mutate(marginal_probability = count/sum(count))
+t %>% kbl() %>% kable_styling()
+
+```
+
+The code chunk below constructs two stacked barplots where the income variable interacts, first, with the level of consumption of fruit/vegetables, then, with the health variable.
 
 ```{r, fig.align='center', message=FALSE, fig.width= 7, fig.height = 8}
-
-
-
+##########################################################################################
 plot2 <- brfss2013Food %>%
         filter(!is.na(brfss2013Food$fruitVegeGroups), !is.na(brfss2013Food$X_incomg)) %>%
         group_by(X_incomg,fruitVegeGroups) %>%
@@ -162,11 +207,7 @@ p2 <- ggplot(plot2, aes(fill = Level_of_consumption , y = freq , x = X_incomg)) 
             theme(axis.text.x=element_text(size=8),
                   axis.title.x=element_blank(), 
                   plot.title = element_text(hjust = 0.5)) 
-
-
-# income vs health
-
-
+##########################################################################################
 plot3 <- brfss2013 %>%
         filter(!is.na(brfss2013$X_rfhlth), !is.na(brfss2013$X_incomg)) %>%
         group_by(X_incomg,X_rfhlth) %>%
@@ -191,18 +232,61 @@ p3 <- ggplot(plot3, aes(fill = Health_Status , y = freq , x = X_incomg)) +
         
 grid.arrange(p2, p3, ncol=1)
 
-
-
 ```
 
-```{r, fig.align='center', message=FALSE, fig.width= 7, fig.height = 8}
+As we can see, the income variable is associated with the level con consumption of fruit/vegetables. Using the probability notation...
+      
+<center>
+**P(eating more than 3 fruit/vegetables | income greater than $50.000 > P(eating more than 3 fruit/vegetables | income less than $15.000)**  
+       
+</center>     
+    
+also, the income variable is associated with the health variable...         
+<center> 
+     
+**P(Good or better health | income greater than $50.000 > P(Good or better health | income less than $15.000)** 
+       
+</center>
+     
+So we can determine that income is a confounding variable.  
+  
+Now, let´s do the same analysis for the variable of physical activity. We will use a continuous (Number of physical activities realized in the last month) and discrete versions (Dummy variable)
+
+```{r,  message=FALSE}
 brfss2013FoodExce <- brfss2013Food %>% 
         filter(exeroft1 %in% (201:299)) %>% 
         mutate(ExerciPerMonth = 
                        exeroft1 - 200 )
+```
+
+Using the continuous variable of physical activity we can calculate the mean and the standard deviation:
+
+```{r,  message=FALSE}
+
+mean(brfss2013FoodExce$ExerciPerMonth)
+sd(brfss2013FoodExce$ExerciPerMonth)
+```
+
+Using the discrete variable of physical activity  we can calculate the marginal probabilities of each level of consumption.
+
+```{r,  message=FALSE}
+t <- brfss2013 %>%  filter(!is.na(brfss2013$exerany2))  %>%
+                             group_by(exerany2) %>%
+                             summarise(count = n()) %>% 
+                             mutate(marginal_probability = count/sum(count))
+t %>% kbl() %>% kable_styling()
+
+```
+
+
+```{r, fig.align='center', message=FALSE, fig.width= 7, fig.height = 8}
+##########################################################################################
 p4 <- ggplot(brfss2013FoodExce, aes(x=ExerciPerMonth, y=averageDayFruitVeg)) +
         geom_point(alpha = 1/5, size = 1.5) +
-        geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) 
+        geom_smooth(method=lm , color="red", fill="#69b3a2", se=TRUE) +
+        labs(x = "Number of physical activities realized in the last month",
+             y = "Daily consumption (units of fruit/vegetables)")
+
 
 plot5 <- brfss2013 %>%
         filter(!is.na(brfss2013$X_rfhlth), !is.na(brfss2013$exerany2)) %>%
@@ -212,12 +296,12 @@ plot5 <- brfss2013 %>%
                posn_pct = cumsum(freq)-0.5*freq)
 names(plot5)[2] <- c("Health_Status")
 
-
+##########################################################################################
 p5 <- ggplot(plot5, aes(fill = Health_Status , y = freq , x = exerany2)) + 
       geom_bar(position ="stack", stat = "identity", width = .8, color="black") +
       geom_text(aes(label= round(freq, digits = 2), y=1-posn_pct), color="white") +
       ggtitle("Probability of having good or poor healt given
-                             the level of income") +
+                             the realization of exercise") +
       ylab("Relative frequency") + 
       scale_fill_manual(values=c("steelblue2", "indianred2")) + 
       theme(axis.text.x=element_text(size=8), axis.title.x=element_blank()) 
@@ -274,12 +358,14 @@ M <- plot2 %>% group_by(exerany2,Health_Status) %>%
 
 means <- M$means
 ggplot(plot2, aes(x=exerany2, y=totFruitVegetables)) +
-  geom_boxplot(aes(fill=Health_Status), position=position_dodge(.9)) +
-  stat_summary(fun=mean, geom="point", aes(group=Health_Status), position=position_dodge(.9),show.legend=FALSE, 
-               color="black", size= 5) +
-  scale_fill_manual(values=c("steelblue2", "indianred2")) +  
-  geom_text(data = M, aes(y = means, label=round(means,2), group=Health_Status),
-             position=position_dodge(1.2))
+      geom_boxplot(aes(fill=Health_Status), position=position_dodge(.9)) +
+      stat_summary(fun=mean, geom="point", aes(group=Health_Status), position=position_dodge(.9),show.legend=FALSE, 
+                   color="black", size= 5) +
+      scale_fill_manual(values=c("steelblue2", "indianred2")) +  
+      geom_text(data = M, aes(y = means, label=round(means,2), group=Health_Status),
+                 position=position_dodge(1.2)) + 
+      labs(x = "physical activities in the last month",
+           y = "Daily consumption (units of fruit/vegetables)")
 
 
 
