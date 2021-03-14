@@ -69,7 +69,7 @@ This question does not pretend to find causality. The purpose is to see if the r
 
 ## **Part 3: Exploratory data analysis**
 
-# **Research question 1:**
+### **Research question 1:**
 
 To assess the relationship between **health quality** and **level of consumption of fruit and vegetables** is needed some transformation of the data. In the code chunk below, we create a continuous variable that shows the total consumption of fruit and vegetables for each of the respondents. Then, we recategorized the variable to create a discrete one. 
 
@@ -164,7 +164,7 @@ The plot shows the conditional probabilities of having good or poor health given
 </center>     
 
 * * *
-# **Research question 2:**
+### **Research question 2:**
 
 We have the hypothesis that **income** and **physical activity** are confounding variables to the relationship of the first question. 
 
@@ -172,7 +172,7 @@ In order to solve this question its necessary to prove that the variables are as
 
 Let´s start with the income variable. 
 
-We can calculate the marginal probabilities of the variable of income
+We can calculate the marginal probabilities of the of income variable
 ```{r,  message=FALSE}
 t <- brfss2013Food  %>%  filter(!is.na(brfss2013Food$X_incomg))  %>%
                              group_by(X_incomg) %>%
@@ -237,19 +237,21 @@ grid.arrange(p2, p3, ncol=1)
 As we can see, the income variable is associated with the level con consumption of fruit/vegetables. Using the probability notation...
       
 <center>
-**P(eating more than 3 fruit/vegetables | income greater than $50.000 > P(eating more than 3 fruit/vegetables | income less than $15.000)**  
+**P(eating more than 3 fruit/vegetables | income greater than $50.000) > P(eating more than 3 fruit/vegetables | income less than $15.000)**  
        
 </center>     
     
 also, the income variable is associated with the health variable...         
 <center> 
      
-**P(Good or better health | income greater than $50.000 > P(Good or better health | income less than $15.000)** 
+**P(Good or better health | income greater than $50.000) > P(Good or better health | income less than $15.000)** 
        
 </center>
      
-So we can determine that income is a confounding variable.  
+So we can determine that income is a confounding variable.
   
+* * *    
+    
 Now, let´s do the same analysis for the variable of physical activity. We will use a continuous (Number of physical activities realized in the last month) and discrete versions (Dummy variable)
 
 ```{r,  message=FALSE}
@@ -278,6 +280,7 @@ t %>% kbl() %>% kable_styling()
 
 ```
 
+The code chunk below constructs a scatterplot and a stacked barplot. The scatterplot shows the interaction between the realization of physical activity (in the continuous version of the variable) and the consumption of fruit and vegetables ( in the continuous version of the variable). The barplot shows the interaction between the realization of physical activity (in the discrete version of the variable) and the health status.
 
 ```{r, fig.align='center', message=FALSE, fig.width= 7, fig.height = 8}
 ##########################################################################################
@@ -310,13 +313,37 @@ grid.arrange(p4, p5, ncol=1)
 
 ```
 
+As we can see in the scatterplot, the physical activity variable has a positive correlation with the level of consumption of fruit/vegetables. In this sense, a person that practices a lot of physical activity also has a high consumption of fruit and vegetables.
 
+Rewriting this idea with the probability notation (and assuming that the variables have discrete levels)...
+   
+<center>
+**P(high consumption of fruit/vegetables | a lot of physical activity) > P(high consumption of fruit/vegetables | little physical activity)**  
+       
+</center>  
+   
+Also, for the stacked barplot we can see that the physical activity is associated with the health variable....
+   
+<center> 
+     
+**P(Good or better health | physical activity in past 30 days) > P(Good or better health | no physical activity in past 30 days)** 
+   
+</center>  
 
-**Research quesion 3:**
+So we can determine that physical activity is a confounding variable.  
+       
+* * *
+### **Research question 3:**
+
+In this question, we would control the confounding variables and check if the association between health quality and consumption of fruit and vegetables still prevails.
+
+Let´s start trying to control the income variable.
+
+Again a stacked barplot is a good way to visualize the association *across* the income levels.   
 
 ```{r,  fig.align='center', message=FALSE, fig.width= 12, fig.height = 8}
 
-
+##########################################################################################
 plot1 <- brfss2013Food %>%
         filter(!is.na(brfss2013Food$X_rfhlth), 
                !is.na(brfss2013Food$fruitVegeGroups),
@@ -332,7 +359,7 @@ ggplot(plot1, aes(fill = Health_Status , y = freq , x = fruitVegeGroups)) +
       geom_bar(position ="stack", stat = "identity", width = .8, color="black") +
       geom_text(aes(label= round(freq, digits = 2), y=1-posn_pct), color="white") +
       facet_grid( X_incomg~.)+
-      ggtitle("Probability of having good or poor healt given the daily consumption of fruit and vegetable") +
+      ggtitle("Probability of having good or poor healt given the daily consumption of fruit and vegetable (across income levels)") +
       ylab("Relative frequency") + 
       scale_fill_manual(values=c("steelblue2", "indianred2")) + 
       theme(axis.text.x=element_text(size=10), 
@@ -343,31 +370,74 @@ ggplot(plot1, aes(fill = Health_Status , y = freq , x = fruitVegeGroups)) +
 
 
 ```
+Across the income levels the relationship of the first question still prevails: a high level of consumption of fruit/vegetables is associated with better health. This is true for both individuals of high income and individuals of low income.
+* * *
 
-```{r,  fig.align='center', message=FALSE, fig.width= 12, fig.height = 8, message=FALSE}
+Now let´s control the physical activity variable.
 
+In this case, the best option is to use the continuous version of the variable of consumption of fruit and vegetables and present a boxplot. 
 
+To determine the effect of controlling the physical activity variable, we present a boxplot that does not consider this variable.
+
+```{r,  fig.align='center', message=FALSE, fig.width= 15, fig.height = 12, message=FALSE, warning=FALSE}
+##########################################################################################
 plot2 <- brfss2013Food %>% 
-  filter(!is.na(brfss2013Food$totFruitVegetables), 
+  filter(!is.na(brfss2013Food$averageDayFruitVeg), 
          !is.na(brfss2013Food$X_rfhlth),
-         !is.na(brfss2013Food$exerany2), totFruitVegetables < 300)
+         averageDayFruitVeg < 5)
+names(plot2)[which(names(plot2) == "X_rfhlth")] <- c("Health_Status")
+
+M <- plot2 %>% group_by(Health_Status) %>% 
+  summarise(means= mean(averageDayFruitVeg))
+
+means <- M$means
+
+p1 <- ggplot(plot2, aes(x=Health_Status, y=averageDayFruitVeg)) +
+      geom_boxplot(aes(fill=Health_Status)) +
+      stat_summary(fun=mean, geom="point", position=position_dodge(.9),show.legend=FALSE, 
+                   color="black", size= 5) +
+      scale_fill_manual(values=c("steelblue2", "indianred2")) +  
+      geom_text(data = M, aes(y = means + 0.2, label=round(means,2)),
+                position=position_dodge(1.2)) + 
+      labs(x = "Health Satus",
+           y = "Daily consumption (units of fruit/vegetables)",
+           title = "Without controlling the physical activity variable")
+    
+##########################################################################################
+plot2 <- brfss2013Food %>% 
+  filter(!is.na(brfss2013Food$averageDayFruitVeg), 
+         !is.na(brfss2013Food$X_rfhlth),
+         !is.na(brfss2013Food$exerany2), averageDayFruitVeg < 5)
 names(plot2)[which(names(plot2) == "X_rfhlth")] <- c("Health_Status")
 
 M <- plot2 %>% group_by(exerany2,Health_Status) %>% 
-  summarise(means= mean(totFruitVegetables))
+  summarise(means= mean(averageDayFruitVeg))
 
 means <- M$means
-ggplot(plot2, aes(x=exerany2, y=totFruitVegetables)) +
+
+p2 <- ggplot(plot2, aes(x=exerany2, y=averageDayFruitVeg)) +
       geom_boxplot(aes(fill=Health_Status), position=position_dodge(.9)) +
       stat_summary(fun=mean, geom="point", aes(group=Health_Status), position=position_dodge(.9),show.legend=FALSE, 
                    color="black", size= 5) +
       scale_fill_manual(values=c("steelblue2", "indianred2")) +  
       geom_text(data = M, aes(y = means, label=round(means,2), group=Health_Status),
-                 position=position_dodge(1.2)) + 
+                 position=position_dodge(1.4)) + 
       labs(x = "physical activities in the last month",
-           y = "Daily consumption (units of fruit/vegetables)")
+           y = "Daily consumption (units of fruit/vegetables)",
+           title = "Controlling the physical activity variable")
 
+
+grid.arrange(p1, p2, ncol=2)
 
 
 ```
+
+The first boxplot shows the same result of the first question with a different logic. Its usefulness lies in contrasting it with the boxplot that controls the physical activity variable.
+
+When we control the confounding variable, the relationship between health and consumption can only be seen in the group that realized physical activity. The relationship is broken in the group that didn´t realize physical activity.
+
+* * *
+## **Conclusion**
+
+In this assessment we explored the relationship between the level of consumption of fruit and vegetables and the health status using the dataset of the BRFSS. Using stacked barplots, we observed that there is a positive association between the two variables. However, we also determined that there are confounding variables that affect this association. We focus on the income and physical activity variables. Finally, when we tried to control these variables we found contrasting results: the relationship still prevails when we control the income variable, but it was partially broken when we control the physical activity. These results underline the idea that the association of two variables doesn't imply causality.
 
